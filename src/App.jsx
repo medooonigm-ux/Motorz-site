@@ -1,0 +1,645 @@
+import React, { useState, useMemo, useEffect } from "react";
+
+const FONTS = (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+    * { box-sizing: border-box; }
+    .cd-root { font-family: 'Cairo', sans-serif; }
+    .cd-root button { font-family: 'Cairo', sans-serif; cursor: pointer; }
+    .cd-root input, .cd-root select { font-family: 'Cairo', sans-serif; }
+    .cd-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .cd-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(0,0,0,0.12); }
+  `}</style>
+);
+
+const C = {
+  ink: "#1C1C1E",
+  steel: "#3A3A3C",
+  red: "#D62828",
+  bg: "#F5F4F1",
+  card: "#FFFFFF",
+  line: "#E4E2DC",
+  muted: "#7A776E",
+  gold: "#C99A3E",
+};
+
+const CARS = [
+  { id: 1, brand: "تويوتا", model: "كورولا 2024", type: "سيدان", price: 850000, year: 2024, fuel: "بنزين", km: 0, wikiTitle: "Toyota Corolla" },
+  { id: 2, brand: "هيونداي", model: "توسان 2023", type: "SUV", price: 1450000, year: 2023, fuel: "بنزين", km: 12000, wikiTitle: "Hyundai Tucson" },
+  { id: 3, brand: "كيا", model: "سبورتاج 2024", type: "SUV", price: 1600000, year: 2024, fuel: "بنزين", km: 0, wikiTitle: "Kia Sportage" },
+  { id: 4, brand: "بي إم دبليو", model: "الفئة 3 2022", type: "سيدان فاخر", price: 2900000, year: 2022, fuel: "بنزين", km: 25000, wikiTitle: "BMW 3 Series" },
+  { id: 5, brand: "نيسان", model: "صني 2024", type: "سيدان", price: 620000, year: 2024, fuel: "بنزين", km: 0, wikiTitle: "Nissan Sunny" },
+  { id: 6, brand: "مرسيدس", model: "C200 2023", type: "سيدان فاخر", price: 3400000, year: 2023, fuel: "بنزين", km: 8000, wikiTitle: "Mercedes-Benz C-Class" },
+  { id: 7, brand: "شيفروليه", model: "أونيكس 2024", type: "هاتشباك", price: 590000, year: 2024, fuel: "بنزين", km: 0, wikiTitle: "Chevrolet Onix" },
+  { id: 8, brand: "فولكس فاجن", model: "تيجوان 2023", type: "SUV", price: 1750000, year: 2023, fuel: "بنزين", km: 5000, wikiTitle: "Volkswagen Tiguan" },
+  { id: 9, brand: "أودي", model: "Q3 2022", type: "SUV فاخر", price: 2600000, year: 2022, fuel: "بنزين", km: 30000, wikiTitle: "Audi Q3" },
+  { id: 10, brand: "هوندا", model: "سيفيك 2024", type: "سيدان", price: 980000, year: 2024, fuel: "بنزين", km: 0, wikiTitle: "Honda Civic" },
+];
+
+const TYPES = ["الكل", "سيدان", "SUV", "هاتشباك", "سيدان فاخر", "SUV فاخر"];
+
+function fmt(n) {
+  return n.toLocaleString("en-US") + " ج.م";
+}
+
+const wikiImageCache = {};
+
+function CarThumb({ wikiTitle, type, alt }) {
+  const [photo, setPhoto] = useState(wikiImageCache[wikiTitle] || null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!wikiTitle || wikiImageCache[wikiTitle] !== undefined) {
+      if (wikiImageCache[wikiTitle]) setPhoto(wikiImageCache[wikiTitle]);
+      return;
+    }
+    let cancelled = false;
+    fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiTitle)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        const src = data?.originalimage?.source || data?.thumbnail?.source || null;
+        wikiImageCache[wikiTitle] = src;
+        if (!cancelled) setPhoto(src);
+      })
+      .catch(() => {
+        wikiImageCache[wikiTitle] = null;
+        if (!cancelled) setFailed(true);
+      });
+    return () => { cancelled = true; };
+  }, [wikiTitle]);
+
+  const palette = {
+    "سيدان": ["#3A3A3C", "#1C1C1E"],
+    "SUV": ["#5A5650", "#1C1C1E"],
+    "هاتشباك": ["#7A776E", "#1C1C1E"],
+    "سيدان فاخر": ["#C99A3E", "#1C1C1E"],
+    "SUV فاخر": ["#C99A3E", "#3A3A3C"],
+  }[type] || ["#3A3A3C", "#1C1C1E"];
+
+  if (photo && !failed) {
+    return (
+      <div style={{ height: 150, borderRadius: 8, overflow: "hidden", background: C.line }}>
+        <img
+          src={photo}
+          alt={alt}
+          onError={() => setFailed(true)}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          loading="lazy"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ height: 150, borderRadius: 8, overflow: "hidden", background: `linear-gradient(135deg, ${palette[0]}, ${palette[1]})` }}>
+      <svg viewBox="0 0 200 100" width="100%" height="100%" role="img" aria-label={alt}>
+        <ellipse cx="100" cy="78" rx="82" ry="6" fill="rgba(0,0,0,0.25)" />
+        <path
+          d="M25 68 L34 45 Q42 32 60 30 L130 30 Q150 32 160 45 L172 68 Z"
+          fill="rgba(255,255,255,0.14)"
+        />
+        <path
+          d="M55 45 L64 33 Q68 30 76 30 L118 30 Q126 30 130 33 L140 45 Z"
+          fill="rgba(255,255,255,0.28)"
+        />
+        <circle cx="58" cy="70" r="12" fill="rgba(0,0,0,0.55)" />
+        <circle cx="58" cy="70" r="5" fill="rgba(255,255,255,0.5)" />
+        <circle cx="142" cy="70" r="12" fill="rgba(0,0,0,0.55)" />
+        <circle cx="142" cy="70" r="5" fill="rgba(255,255,255,0.5)" />
+        <rect x="30" y="60" width="10" height="4" rx="2" fill="rgba(255,255,255,0.5)" />
+        <rect x="160" y="60" width="10" height="4" rx="2" fill="rgba(255,255,255,0.5)" />
+      </svg>
+    </div>
+  );
+}
+
+function Nav({ active, setActive, favCount }) {
+  const pages = [
+    { id: "home", label: "الرئيسية" },
+    { id: "cars", label: "العربيات" },
+    { id: "compare", label: "قارن" },
+    { id: "finance", label: "حاسبة التمويل" },
+    { id: "favorites", label: `المفضلة${favCount ? " (" + favCount + ")" : ""}` },
+    { id: "about", label: "من نحن" },
+    { id: "contact", label: "تواصل" },
+  ];
+  return (
+    <div style={{ background: C.ink, position: "sticky", top: 0, zIndex: 10 }}>
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap" }}>
+        <div style={{ color: "#fff", fontWeight: 800, fontSize: 20, padding: "18px 0" }}>
+          <span style={{ color: C.red }}>مو</span>تورز
+        </div>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {pages.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => setActive(p.id)}
+              style={{
+                background: "transparent", border: "none", padding: "18px 14px",
+                fontSize: 14, fontWeight: active === p.id ? 700 : 400,
+                color: active === p.id ? "#fff" : "#9A9A9C",
+                borderBottom: active === p.id ? `2px solid ${C.red}` : "2px solid transparent",
+              }}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CarCard({ car, isFav, toggleFav, onOpen }) {
+  return (
+    <div className="cd-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14, position: "relative" }}>
+      <button
+        onClick={() => toggleFav(car.id)}
+        aria-label="أضف للمفضلة"
+        style={{
+          position: "absolute", top: 22, left: 22, zIndex: 2,
+          width: 34, height: 34, borderRadius: "50%", border: "none",
+          background: "rgba(255,255,255,0.9)", fontSize: 16,
+          color: isFav ? C.red : "#B5B2A9",
+        }}
+      >
+        {isFav ? "♥" : "♡"}
+      </button>
+      <div onClick={() => onOpen(car)} style={{ cursor: "pointer" }}>
+        <CarThumb wikiTitle={car.wikiTitle} type={car.type} alt={car.brand + " " + car.model} />
+        <div style={{ marginTop: 12 }}>
+          <p style={{ fontSize: 12, color: C.muted, margin: "0 0 2px" }}>{car.brand}</p>
+          <p style={{ fontSize: 16, fontWeight: 700, color: C.ink, margin: "0 0 8px" }}>{car.model}</p>
+          <p style={{ fontSize: 17, fontWeight: 800, color: C.red, margin: 0 }}>{fmt(car.price)}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function HomePage({ setActive }) {
+  return (
+    <div>
+      <div style={{
+        background: C.ink, borderRadius: 14, padding: "56px 40px", color: "#fff",
+        display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 24
+      }}>
+        <div style={{ maxWidth: 460 }}>
+          <p style={{ color: C.gold, fontWeight: 700, fontSize: 14, margin: "0 0 10px" }}>موتورز — سوق العربيات</p>
+          <h1 style={{ fontSize: 34, fontWeight: 800, lineHeight: 1.4, margin: "0 0 16px" }}>
+            العربية اللي بتدور عليها موجودة هنا
+          </h1>
+          <p style={{ color: "#C7C6C2", fontSize: 15, lineHeight: 1.9, margin: "0 0 28px" }}>
+            تصفح مئات العربيات الجديدة والمستعملة، قارن الأسعار، واحجز تجربة قيادة في دقايق.
+          </p>
+          <button
+            onClick={() => setActive("cars")}
+            style={{ background: C.red, color: "#fff", border: "none", padding: "14px 28px", borderRadius: 8, fontSize: 15, fontWeight: 700 }}
+          >
+            تصفح العربيات
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+          {[["+300", "عربية متاحة"], ["24", "ماركة"], ["4.8", "تقييم العملاء"]].map(([n, l]) => (
+            <div key={l} style={{ textAlign: "center" }}>
+              <p style={{ fontSize: 28, fontWeight: 800, color: C.gold, margin: "0 0 4px" }}>{n}</p>
+              <p style={{ fontSize: 12, color: "#C7C6C2", margin: 0 }}>{l}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: 48 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: C.ink, marginBottom: 20 }}>أحدث العربيات</h2>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+          {CARS.slice(0, 4).map((c) => (
+            <div key={c.id} className="cd-card" style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 14 }}>
+              <CarThumb wikiTitle={c.wikiTitle} type={c.type} alt={c.brand + " " + c.model} />
+              <p style={{ fontSize: 12, color: C.muted, margin: "12px 0 2px" }}>{c.brand}</p>
+              <p style={{ fontSize: 15, fontWeight: 700, color: C.ink, margin: "0 0 6px" }}>{c.model}</p>
+              <p style={{ fontSize: 15, fontWeight: 800, color: C.red, margin: 0 }}>{fmt(c.price)}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const NHTSA_MAKES = ["Toyota", "Hyundai", "Kia", "BMW", "Nissan", "Mercedes-Benz", "Chevrolet", "Volkswagen", "Audi", "Honda"];
+
+function RealModelsLookup({ onPick }) {
+  const [make, setMake] = useState("Toyota");
+  const [models, setModels] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setErr("");
+    fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/getmodelsformake/${encodeURIComponent(make)}?format=json`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        const names = (data.Results || []).map((m) => m.Model_Name).slice(0, 16);
+        setModels(names);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setErr("مقدرناش نجيب البيانات دلوقتي، جرب تاني");
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [make]);
+
+  return (
+    <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 16, marginBottom: 24 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>
+          موديلات حقيقية من قاعدة بيانات NHTSA الأمريكية المجانية
+        </p>
+        <select value={make} onChange={(e) => setMake(e.target.value)} style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 14 }}>
+          {NHTSA_MAKES.map((m) => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      {loading && <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>بنجيب الموديلات...</p>}
+      {err && <p style={{ fontSize: 13, color: "#C0392B", margin: 0 }}>{err}</p>}
+      {!loading && !err && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {models.length === 0 ? (
+            <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>مفيش موديلات متاحة لده الماركة</p>
+          ) : (
+            models.map((name) => (
+              <button
+                key={name}
+                onClick={() => onPick(make + " " + name)}
+                style={{
+                  background: C.bg, border: `1px solid ${C.line}`, borderRadius: 20,
+                  padding: "6px 14px", fontSize: 13, color: C.steel,
+                }}
+              >
+                {name}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CarsPage({ favorites, toggleFav, onOpen }) {
+  const [query, setQuery] = useState("");
+  const [type, setType] = useState("الكل");
+  const [maxPrice, setMaxPrice] = useState(4000000);
+  const [sort, setSort] = useState("default");
+
+  const filtered = useMemo(() => {
+    let list = CARS.filter((c) => {
+      const matchesQuery = (c.brand + " " + c.model).includes(query.trim());
+      return matchesQuery && (type === "الكل" || c.type === type) && c.price <= maxPrice;
+    });
+    if (sort === "asc") list = [...list].sort((a, b) => a.price - b.price);
+    if (sort === "desc") list = [...list].sort((a, b) => b.price - a.price);
+    return list;
+  }, [query, type, maxPrice, sort]);
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginBottom: 20 }}>كل العربيات</h2>
+
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="دور على عربية، مثلاً: تويوتا كورولا"
+        style={{
+          width: "100%", padding: "13px 16px", borderRadius: 8, border: `1px solid ${C.line}`,
+          fontSize: 15, marginBottom: 16, background: C.card,
+        }}
+      />
+
+      <RealModelsLookup onPick={(name) => setQuery(name)} />
+
+      <div style={{
+        display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center",
+        background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 16, marginBottom: 24
+      }}>
+        <div>
+          <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 6 }}>النوع</label>
+          <select value={type} onChange={(e) => setType(e.target.value)} style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 14 }}>
+            {TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div style={{ minWidth: 220 }}>
+          <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 6 }}>
+            أقصى سعر: {fmt(maxPrice)}
+          </label>
+          <input
+            type="range" min="500000" max="4000000" step="50000"
+            value={maxPrice} onChange={(e) => setMaxPrice(Number(e.target.value))}
+            style={{ width: "100%" }}
+          />
+        </div>
+        <div>
+          <label style={{ fontSize: 12, color: C.muted, display: "block", marginBottom: 6 }}>الترتيب</label>
+          <select value={sort} onChange={(e) => setSort(e.target.value)} style={{ padding: "8px 12px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 14 }}>
+            <option value="default">الأحدث</option>
+            <option value="asc">السعر: من الأقل</option>
+            <option value="desc">السعر: من الأعلى</option>
+          </select>
+        </div>
+      </div>
+
+      <p style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>{filtered.length} نتيجة</p>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+        {filtered.map((c) => (
+          <CarCard key={c.id} car={c} isFav={favorites.includes(c.id)} toggleFav={toggleFav} onOpen={onOpen} />
+        ))}
+        {filtered.length === 0 && (
+          <p style={{ color: C.muted, fontSize: 14 }}>مفيش عربيات مطابقة، جربي تغيير الفلتر.</p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CarDetail({ car, onClose, isFav, toggleFav }) {
+  const [booked, setBooked] = useState(false);
+  if (!car) return null;
+  return (
+    <div style={{
+      position: "fixed", inset: 0, background: "rgba(28,28,30,0.6)",
+      display: "flex", alignItems: "center", justifyContent: "center", zIndex: 50, padding: 20
+    }}>
+      <div style={{ background: "#fff", borderRadius: 14, maxWidth: 520, width: "100%", padding: 28, position: "relative" }}>
+        <button onClick={onClose} style={{ position: "absolute", top: 18, left: 18, background: "none", border: "none", fontSize: 20, color: C.muted }}>×</button>
+        <CarThumb wikiTitle={car.wikiTitle} type={car.type} alt={car.brand + " " + car.model} />
+        <div style={{ marginTop: 16, display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div>
+            <p style={{ fontSize: 13, color: C.muted, margin: "0 0 4px" }}>{car.brand}</p>
+            <h3 style={{ fontSize: 22, fontWeight: 800, color: C.ink, margin: 0 }}>{car.model}</h3>
+          </div>
+          <button onClick={() => toggleFav(car.id)} style={{ background: "none", border: "none", fontSize: 22, color: isFav ? C.red : "#B5B2A9" }}>
+            {isFav ? "♥" : "♡"}
+          </button>
+        </div>
+        <p style={{ fontSize: 24, fontWeight: 800, color: C.red, margin: "12px 0 20px" }}>{fmt(car.price)}</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
+          {[["السنة", car.year], ["النوع", car.type], ["الوقود", car.fuel], ["الكيلومترات", car.km.toLocaleString("en-US")]].map(([l, v]) => (
+            <div key={l} style={{ background: C.bg, borderRadius: 8, padding: "10px 14px" }}>
+              <p style={{ fontSize: 11, color: C.muted, margin: "0 0 2px" }}>{l}</p>
+              <p style={{ fontSize: 14, fontWeight: 700, color: C.ink, margin: 0 }}>{v}</p>
+            </div>
+          ))}
+        </div>
+        {booked ? (
+          <p style={{ color: "#2A6F3A", fontSize: 14, fontWeight: 600 }}>تم تأكيد حجز تجربة القيادة، هنتصل بيك قريب.</p>
+        ) : (
+          <button
+            onClick={() => setBooked(true)}
+            style={{ width: "100%", background: C.ink, color: "#fff", border: "none", padding: "13px", borderRadius: 8, fontSize: 15, fontWeight: 700 }}
+          >
+            احجز تجربة قيادة
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ComparePage() {
+  const [aId, setAId] = useState(CARS[0].id);
+  const [bId, setBId] = useState(CARS[1].id);
+  const a = CARS.find((c) => c.id === Number(aId));
+  const b = CARS.find((c) => c.id === Number(bId));
+  const rows = [
+    ["السعر", (c) => fmt(c.price)],
+    ["السنة", (c) => c.year],
+    ["النوع", (c) => c.type],
+    ["الوقود", (c) => c.fuel],
+    ["الكيلومترات", (c) => c.km.toLocaleString("en-US")],
+  ];
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginBottom: 20 }}>قارن بين عربيتين</h2>
+      <div style={{ display: "flex", gap: 16, marginBottom: 24, flexWrap: "wrap" }}>
+        {[[aId, setAId], [bId, setBId]].map(([val, setter], i) => (
+          <select key={i} value={val} onChange={(e) => setter(e.target.value)} style={{ padding: "10px 14px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 14, flex: "1 1 200px" }}>
+            {CARS.map((c) => <option key={c.id} value={c.id}>{c.brand} {c.model}</option>)}
+          </select>
+        ))}
+      </div>
+      <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, overflow: "hidden" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+          <div style={{ padding: 16, borderBottom: `1px solid ${C.line}` }} />
+          <div style={{ padding: 16, borderBottom: `1px solid ${C.line}`, fontWeight: 700, textAlign: "center" }}>{a.brand} {a.model}</div>
+          <div style={{ padding: 16, borderBottom: `1px solid ${C.line}`, fontWeight: 700, textAlign: "center" }}>{b.brand} {b.model}</div>
+          {rows.map(([label, get]) => (
+            <React.Fragment key={label}>
+              <div style={{ padding: 14, fontSize: 13, color: C.muted, borderBottom: `1px solid ${C.line}` }}>{label}</div>
+              <div style={{ padding: 14, fontSize: 14, textAlign: "center", borderBottom: `1px solid ${C.line}` }}>{get(a)}</div>
+              <div style={{ padding: 14, fontSize: 14, textAlign: "center", borderBottom: `1px solid ${C.line}` }}>{get(b)}</div>
+            </React.Fragment>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FinancePage() {
+  const [price, setPrice] = useState(1000000);
+  const [down, setDown] = useState(200000);
+  const [months, setMonths] = useState(36);
+  const rate = 0.14;
+  const principal = Math.max(price - down, 0);
+  const monthly = principal > 0 ? (principal * (1 + rate)) / months : 0;
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginBottom: 20 }}>حاسبة التمويل الشهري</h2>
+      <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
+        <div style={{ flex: "1 1 300px", display: "flex", flexDirection: "column", gap: 20 }}>
+          <div>
+            <label style={{ fontSize: 13, color: C.muted }}>سعر العربية: {fmt(price)}</label>
+            <input type="range" min="300000" max="4000000" step="10000" value={price} onChange={(e) => setPrice(Number(e.target.value))} style={{ width: "100%" }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, color: C.muted }}>المقدم: {fmt(down)}</label>
+            <input type="range" min="0" max={price} step="10000" value={Math.min(down, price)} onChange={(e) => setDown(Number(e.target.value))} style={{ width: "100%" }} />
+          </div>
+          <div>
+            <label style={{ fontSize: 13, color: C.muted }}>مدة التمويل: {months} شهر</label>
+            <input type="range" min="12" max="60" step="6" value={months} onChange={(e) => setMonths(Number(e.target.value))} style={{ width: "100%" }} />
+          </div>
+        </div>
+        <div style={{ flex: "0 0 260px", background: C.ink, borderRadius: 12, padding: 28, color: "#fff" }}>
+          <p style={{ fontSize: 13, color: "#C7C6C2", margin: "0 0 8px" }}>القسط الشهري التقديري</p>
+          <p style={{ fontSize: 32, fontWeight: 800, color: C.gold, margin: "0 0 16px" }}>{fmt(Math.round(monthly))}</p>
+          <p style={{ fontSize: 12, color: "#9A9A9C", margin: 0, lineHeight: 1.8 }}>
+            تقدير مبدئي بفائدة سنوية 14%. السعر النهائي بيتحدد بعد موافقة البنك.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FavoritesPage({ favorites, toggleFav, onOpen }) {
+  const favCars = CARS.filter((c) => favorites.includes(c.id));
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginBottom: 20 }}>المفضلة</h2>
+      {favCars.length === 0 ? (
+        <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 40, textAlign: "center" }}>
+          <p style={{ color: C.muted, fontSize: 14 }}>لسه ما ضفتيش عربيات للمفضلة. اضغطي على ♡ في أي عربية عشان تحفظيها هنا.</p>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+          {favCars.map((c) => (
+            <CarCard key={c.id} car={c} isFav={true} toggleFav={toggleFav} onOpen={onOpen} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AboutPage() {
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginBottom: 20 }}>من نحن</h2>
+
+      <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 40 }}>
+        <p style={{ fontSize: 15, color: C.steel, lineHeight: 2, maxWidth: 620, flex: "1 1 320px" }}>
+          موتورز منصة لبيع وشراء العربيات الجديدة والمستعملة، بدأت سنة 2019 من فكرة بسيطة:
+          تجربة شراء عربية من غير تعقيد أو مساومة على الشفافية. النهاردة بقينا واحدة من أكبر
+          المنصات في مصر، وبنراجع كل عربية بنفسنا قبل ما تتعرض، وبنوفر تمويل وضمان لراحة بالك
+          من أول ما تدخل الموقع لحد ما تستلم مفتاح العربية.
+        </p>
+        <div style={{
+          flex: "0 0 240px", background: C.ink, borderRadius: 12, padding: 24, color: "#fff"
+        }}>
+          <p style={{ fontSize: 13, color: "#C7C6C2", margin: "0 0 6px" }}>رسالتنا</p>
+          <p style={{ fontSize: 15, lineHeight: 1.9, margin: 0 }}>
+            نخلي شراء العربية أسهل قرار تاخده، مش أصعب قرار تفكر فيه.
+          </p>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 16, marginBottom: 40 }}>
+        {[["2019", "سنة التأسيس"], ["+300", "عربية متاحة"], ["+15000", "عميل راضي"], ["12", "فرع في مصر"]].map(([n, l]) => (
+          <div key={l} style={{ textAlign: "center", background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: "20px 12px" }}>
+            <p style={{ fontSize: 24, fontWeight: 800, color: C.red, margin: "0 0 4px" }}>{n}</p>
+            <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>{l}</p>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 16 }}>إيه اللي بيميزنا</h3>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16, marginBottom: 40 }}>
+        {[
+          ["الفحص الشامل", "كل عربية بتتفحص على 120 نقطة قبل العرض"],
+          ["ضمان لمدة سنة", "ضمان ميكانيكي على كل عربية مستعملة"],
+          ["تمويل مرن", "تمويل يوصل لـ 60 شهر بموافقة سريعة"],
+          ["استرجاع خلال 7 أيام", "لو العربية مش عاجباك، ترجعها من غير أي خصم"],
+        ].map(([t, d]) => (
+          <div key={t} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 20 }}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: C.ink, margin: "0 0 8px" }}>{t}</p>
+            <p style={{ fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.8 }}>{d}</p>
+          </div>
+        ))}
+      </div>
+
+      <h3 style={{ fontSize: 17, fontWeight: 700, color: C.ink, marginBottom: 16 }}>قيمنا</h3>
+      <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+        {[
+          ["الشفافية", "بنقول كل حاجة عن العربية، من غير مفاجآت بعد البيع"],
+          ["الثقة", "علاقتنا بالعميل بتكمل بعد البيع مش بتخلص"],
+          ["السرعة", "من أول ما تختار العربية لحد الاستلام في أقل وقت ممكن"],
+        ].map(([t, d]) => (
+          <div key={t} style={{ flex: "1 1 200px", borderRight: `3px solid ${C.gold}`, padding: "4px 16px" }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: C.ink, margin: "0 0 6px" }}>{t}</p>
+            <p style={{ fontSize: 13, color: C.muted, margin: 0, lineHeight: 1.8 }}>{d}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContactPage() {
+  const [sent, setSent] = useState(false);
+  const [name, setName] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = () => {
+    if (!name.trim()) {
+      setError("اكتب اسمك الأول");
+      return;
+    }
+    setError("");
+    setSent(true);
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontSize: 22, fontWeight: 700, color: C.ink, marginBottom: 20 }}>تواصل معانا</h2>
+      <div style={{ display: "flex", gap: 12, flexDirection: "column", maxWidth: 360, marginBottom: 32 }}>
+        <span style={{ fontSize: 14, color: C.steel }}>16000 (الخط الساخن)</span>
+        <span style={{ fontSize: 14, color: C.steel }}>القاهرة الجديدة، طريق التسعين</span>
+      </div>
+      {sent ? (
+        <div style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 10, padding: 20, color: "#2A6F3A", fontSize: 14 }}>
+          استلمنا رسالتك، هيتصل بيك فريقنا قريب.
+        </div>
+      ) : (
+        <div style={{ maxWidth: 400, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div>
+            <input
+              value={name}
+              onChange={(e) => { setName(e.target.value); if (error) setError(""); }}
+              placeholder="اسمك"
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 6, border: `1px solid ${error ? "#C0392B" : C.line}`, fontSize: 14 }}
+            />
+            {error && <p style={{ color: "#C0392B", fontSize: 12, margin: "6px 0 0" }}>{error}</p>}
+          </div>
+          <textarea placeholder="رسالتك" rows={4} style={{ width: "100%", padding: "12px 14px", borderRadius: 6, border: `1px solid ${C.line}`, fontSize: 14, resize: "vertical" }} />
+          <button onClick={handleSubmit} style={{ background: C.ink, color: "#fff", border: "none", borderRadius: 6, padding: "12px 20px", fontSize: 15, alignSelf: "flex-start" }}>
+            إرسال
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function CarDealerSite() {
+  const [active, setActive] = useState("home");
+  const [favorites, setFavorites] = useState([]);
+  const [openCar, setOpenCar] = useState(null);
+
+  const toggleFav = (id) => {
+    setFavorites((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
+  };
+
+  return (
+    <div dir="rtl" className="cd-root" style={{ background: C.bg, minHeight: "100vh" }}>
+      {FONTS}
+      <Nav active={active} setActive={setActive} favCount={favorites.length} />
+      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "36px 24px 80px" }}>
+        {active === "home" && <HomePage setActive={setActive} />}
+        {active === "cars" && <CarsPage favorites={favorites} toggleFav={toggleFav} onOpen={setOpenCar} />}
+        {active === "compare" && <ComparePage />}
+        {active === "finance" && <FinancePage />}
+        {active === "favorites" && <FavoritesPage favorites={favorites} toggleFav={toggleFav} onOpen={setOpenCar} />}
+        {active === "about" && <AboutPage />}
+        {active === "contact" && <ContactPage />}
+      </div>
+      <CarDetail car={openCar} onClose={() => setOpenCar(null)} isFav={openCar ? favorites.includes(openCar.id) : false} toggleFav={toggleFav} />
+    </div>
+  );
+}
